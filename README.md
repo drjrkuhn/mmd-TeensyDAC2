@@ -1,4 +1,5 @@
-# CMake-DemoCamera
+# TeensyDAC2
 
-Example of building a [Micro-manager](https://micro-manager.org/) device driver with [CMake](https://cmake.org/)
+[Micro-manager](https://micro-manager.org/) device driver
 
+Teensy-based DAC galvo controller

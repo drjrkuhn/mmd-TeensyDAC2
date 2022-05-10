@@ -22,8 +22,8 @@ target_include_directories(MMDevice-Shared PRIVATE ${MM_MMDEVICE_INCLUDEDIR})
 target_compile_definitions(MMDevice-Shared PUBLIC ${MMDEVICE_DEFINITIONS})
 
 set(TARGET_NAME "mmgr_dal_${PROJECT_NAME}")
-add_library(${TARGET_NAME} SHARED DemoCamera.cpp DemoCamera.h WriteCompactTiffRGB.h)
-target_include_directories(${TARGET_NAME} PRIVATE ${MM_MMDEVICE_INCLUDEDIR})
+add_library(${TARGET_NAME} SHARED TeensyDAC.cpp TeensyDAC.h)
+target_include_directories(${TARGET_NAME} PRIVATE ${MM_MMDEVICE_INCLUDEDIR} ../lib/ArduinoJson/src ../lib/Ardulingua/src)
 target_link_libraries(${TARGET_NAME} MMDevice-Shared)
 target_compile_definitions(${TARGET_NAME} PUBLIC ${MMDEVICE_DEFINITIONS})
 

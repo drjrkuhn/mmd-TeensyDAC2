@@ -1,0 +1,6 @@
+[submodule "lib/Ardulingua"]
+	path = lib/Ardulingua
+	url = https://github.com/drjrkuhn/Ardulingua.git
+[submodule "lib/ArduinoJson"]
+	path = lib/ArduinoJson
+	url = https://github.com/bblanchon/ArduinoJson.git

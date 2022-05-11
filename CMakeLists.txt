@@ -5,7 +5,9 @@ project(TeensyDAC2 VERSION 0.1.0)
 #set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 #include(CPack)
 
-find_package(Boost 1.78 REQUIRED COMPONENTS thread system)
+set( Boost_THREADAPI win32)
+
+find_package(Boost 1.77 REQUIRED COMPONENTS thread)
 find_package(catch2 2 CONFIG REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)

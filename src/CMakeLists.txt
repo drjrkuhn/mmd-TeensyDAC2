@@ -7,19 +7,20 @@ MESSAGE( STATUS "MM_MMDEVICE_INCLUDEDIR:   " ${MM_MMDEVICE_INCLUDEDIR_ABSOLUTE_P
 
 set(MMDEVICE_DEFINITIONS _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS WIN32 NDEBUG _WINDOWS _USRDLL MODULE_EXPORTS)
 
-
 set(MMDEVICE_SRC 
-    ${MM_MMDEVICE_INCLUDEDIR}/Debayer.cpp
-    ${MM_MMDEVICE_INCLUDEDIR}/DeviceUtils.cpp
-    ${MM_MMDEVICE_INCLUDEDIR}/ImgBuffer.cpp
-    ${MM_MMDEVICE_INCLUDEDIR}/MMDevice.cpp
-    ${MM_MMDEVICE_INCLUDEDIR}/ModuleInterface.cpp
-    ${MM_MMDEVICE_INCLUDEDIR}/Property.cpp
+    Debayer.cpp
+    DeviceUtils.cpp
+    ImgBuffer.cpp
+    MMDevice.cpp
+    ModuleInterface.cpp
+    Property.cpp
 )
+list(TRANSFORM MMDEVICE_SRC PREPEND ${MM_MMDEVICE_INCLUDEDIR}/)
 
 add_library(MMDevice-Shared ${MMDEVICE_SRC})
 target_include_directories(MMDevice-Shared PRIVATE ${MM_MMDEVICE_INCLUDEDIR})
 target_compile_definitions(MMDevice-Shared PUBLIC ${MMDEVICE_DEFINITIONS})
+target_link_libraries(MMDevice-Shared Boost::boost Boost::thread)
 
 set(TARGET_NAME "mmgr_dal_${PROJECT_NAME}")
 add_library(${TARGET_NAME} SHARED TeensyDAC.cpp TeensyDAC.h)

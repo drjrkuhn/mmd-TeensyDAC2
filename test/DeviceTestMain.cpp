@@ -11,7 +11,7 @@ const std::string g_moduleName{"TeensyDAC2"};
 const std::string g_deviceName{"TeensyDAC2-Hub"};
 const std::string g_hubLabel{"Hub"};
 const std::string g_portLabel{"HubSerial"};
-const std::string g_port{"COM8"};
+const std::string g_port{"COM7"};
 
 inline std::string getPropertyTypeVerbose(MM::PropertyType t) {
     switch (t) {

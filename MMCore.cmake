@@ -1,6 +1,8 @@
-set(MMCORE_DEFINITIONS _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS WIN32 _DEBUG _LIB _WINDOWS)
+set(MM_MMCORE_INCLUDEDIR "${MM_SRCROOT}/MMCore")
 
-set(MMCORE_SRC
+set(MM_CORE_DEFINITIONS _CRT_SECURE_NO_WARNINGS _SCL_SECURE_NO_WARNINGS WIN32 _DEBUG _LIB _WINDOWS)
+
+set(MM_CORE_SRC
     CircularBuffer.cpp
     Configuration.cpp
     CoreCallback.cpp
@@ -93,11 +95,15 @@ set(MMCORE_SRC
     TaskSet_CopyMemory.h
     ThreadPool.h
 )
-list(TRANSFORM MMCORE_SRC PREPEND ${MM_MMCORE_INCLUDEDIR}/)
+list(TRANSFORM MM_CORE_SRC PREPEND ${MM_MMCORE_INCLUDEDIR}/)
 
-
-add_library(MMCore STATIC ${MMCORE_SRC})
-target_include_directories(MMCore PRIVATE ${MM_MMCORE_INCLUDEDIR} ${MM_MMDEVICE_INCLUDEDIR})
-target_compile_definitions(MMCore PUBLIC ${MMCORE_DEFINITIONS})
+add_library(MMCore STATIC ${MM_CORE_SRC})
+target_compile_definitions(MMCore PUBLIC ${MM_CORE_DEFINITIONS})
+target_include_directories(MMCore PUBLIC ${MM_MMCORE_INCLUDEDIR} ${MM_MMDEVICE_INCLUDEDIR})
 target_compile_features(MMCore PUBLIC cxx_std_14)
 target_link_libraries(MMCore PRIVATE Iphlpapi.lib Boost::boost Boost::thread)
+set_target_properties(MMCore
+    PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin
+)

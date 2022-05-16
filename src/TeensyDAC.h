@@ -18,12 +18,12 @@
 
 constexpr char* g_FirmwareName    = "MM-TeensyDAC2";
 constexpr char* g_deviceNameHub   = "TeensyDAC2-Hub";
-constexpr char* g_deviceDescHub   = "TeensyDAC2 Hub";
+constexpr char* g_deviceDescHub   = "Teensy Hub";
 constexpr char* g_deviceNameGalvo = "TeensyDAC2-Gal";
 constexpr char* g_deviceDescGalvo = "Galvo Axis";
 
 const auto g_infoName      = rdlmm::PropInfo<std::string>::build(MM::g_Keyword_Name, g_deviceNameHub).readOnly();
-const auto g_infoPort      = rdlmm::PropInfo<std::string>::build(MM::g_Keyword_Port, "Undefined").preInit();
+const auto g_infoPort      = rdlmm::PropInfo<std::string>::build(MM::g_Keyword_Port, "").preInit(); // initial port must be empty string
 const auto g_infoNumGalvos = rdlmm::PropInfo<int>::build("Number of Galvos", 0).preInit();
 
 const auto g_infoVersion = rdlmm::PropInfo<int>::build("Firmware Version", 0).readOnly();
@@ -47,9 +47,7 @@ class CTeensyHub : public HubBase<CTeensyHub> {
     int Initialize();
     int Shutdown();
     void GetName(char* name) const {
-        std::string devname;
-        int ret = name_.GetCachedProperty(devname);
-        CDeviceUtils::CopyLimitedString(name, devname.c_str());
+        CDeviceUtils::CopyLimitedString(name, g_deviceNameHub);
     }
     bool Busy() {
         return false;

@@ -16,31 +16,15 @@
 #include "ModuleInterface.h"
 #include <rdl/sys_timing.h>
 
-const char* g_DeviceNameArduinoHub     = "Arduino-Hub";
-const char* g_DeviceNameArduinoSwitch  = "Arduino-Switch";
-const char* g_DeviceNameArduinoShutter = "Arduino-Shutter";
-const char* g_DeviceNameArduinoDA1     = "Arduino-DAC1";
-const char* g_DeviceNameArduinoDA2     = "Arduino-DAC2";
-const char* g_DeviceNameArduinoInput   = "Arduino-Input";
-
 // Global info about the state of the Arduino.  This should be folded into a class
 const int g_Min_MMVersion         = 1;
-//const int g_Max_MMVersion         = 2;
-//const char* g_versionProp         = "Version";
-//const char* g_normalLogicString   = "Normal";
-//const char* g_invertedLogicString = "Inverted";
-//
-//const char* g_On  = "On";
-//const char* g_Off = "Off";
-
-// static lock
-//MMThreadLock CTeensyHub::lock_;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Exported MMDevice API
 ///////////////////////////////////////////////////////////////////////////////
 MODULE_API void InitializeModuleData() {
     RegisterDevice(g_deviceNameHub, MM::HubDevice, g_deviceDescHub);
+#if 0
     for (int i = 0; i < MAX_NUM_GALVOS; i++) {
         std::string name = g_deviceNameGalvo;
         std::string desc = g_deviceDescGalvo;
@@ -49,6 +33,7 @@ MODULE_API void InitializeModuleData() {
         desc += char('A' + i);
         RegisterDevice(name.c_str(), MM::StageDevice, desc.c_str());
     }
+#endif
 }
 
 MODULE_API MM::Device* CreateDevice(const char* deviceName) {

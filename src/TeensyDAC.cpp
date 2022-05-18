@@ -15,6 +15,7 @@
 #include "TeensyDAC.h"
 #include "ModuleInterface.h"
 #include <rdl/sys_timing.h>
+#include <iostream>
 
 // Global info about the state of the Arduino.  This should be folded into a class
 const int g_Min_MMVersion         = 1;
@@ -23,6 +24,7 @@ const int g_Min_MMVersion         = 1;
 // Exported MMDevice API
 ///////////////////////////////////////////////////////////////////////////////
 MODULE_API void InitializeModuleData() {
+    std::cout << "###### InitializeModuleData()" << std::endl;
     RegisterDevice(g_deviceNameHub, MM::HubDevice, g_deviceDescHub);
 #if 0
     for (int i = 0; i < MAX_NUM_GALVOS; i++) {
@@ -37,11 +39,12 @@ MODULE_API void InitializeModuleData() {
 }
 
 MODULE_API MM::Device* CreateDevice(const char* deviceName) {
-    if (deviceName == 0) {
+    std::cout << "###### CreateDevice " << deviceName << std::endl;
+    if (deviceName == 0) { 
         return nullptr;
     }
     if (strcmp(deviceName, g_deviceNameHub) == 0) {
-        return new CTeensyHub;
+        return new TeensyHub;
     }
 
     #if 0
@@ -57,6 +60,7 @@ MODULE_API MM::Device* CreateDevice(const char* deviceName) {
 }
 
 MODULE_API void DeleteDevice(MM::Device* pDevice) {
+    std::cout << "###### DeleteDevice()" << std::endl;
     delete pDevice;
 }
 
@@ -64,8 +68,9 @@ MODULE_API void DeleteDevice(MM::Device* pDevice) {
 // CArduinoHUb implementation
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-CTeensyHub::CTeensyHub()
-    : initialized_(false), portAvailable_(false), serial_(this), client_(serial_, serial_) {
+TeensyHub::TeensyHub()
+    : initialized_(false), serial_(this), client_(serial_, serial_) {
+    //std::cout << "###### TeensyHub() constructor" << std::endl;
     InitializeDefaultErrorMessages();
     rdlmm::InitCommonErrors(this, "Teensy", g_Min_MMVersion);
     serial_.setTimeout(5000);
@@ -75,7 +80,8 @@ CTeensyHub::CTeensyHub()
     port_.create(this, g_infoPort);
 }
 
-int CTeensyHub::GetControllerVersion(int& version) {
+int TeensyHub::GetControllerVersion(int& version) {
+    std::cout << "###### GetControllerVersion()" << std::endl;
     version = 0;
     try {
         int tempversion  = 0;
@@ -88,72 +94,27 @@ int CTeensyHub::GetControllerVersion(int& version) {
     return rdlmm::ERR_FIRMWARE_NOT_FOUND;
 }
 
-MM::DeviceDetectionStatus CTeensyHub::DetectDevice(void) {
+MM::DeviceDetectionStatus TeensyHub::DetectDevice(void) {
+    std::cout << "###### DetectDevice()" << std::endl;
     if (initialized_)
         return MM::CanCommunicate;
 
     return rdlmm::DetectRemote(this, port(), 9600, g_FirmwareName, g_Min_MMVersion);
-
-    //// all conditions must be satisfied...
-    //MM::DeviceDetectionStatus result = MM::Misconfigured;
-    //char answerTO[MM::MaxStrLength];
-
-    //try {
-    //    std::string portLowerCase = port_;
-    //    for (std::string::iterator its = portLowerCase.begin(); its != portLowerCase.end(); ++its) {
-    //        *its = (char)tolower(*its);
-    //    }
-    //    if (0 < portLowerCase.length() && 0 != portLowerCase.compare("undefined") && 0 != portLowerCase.compare("unknown")) {
-    //        result = MM::CanNotCommunicate;
-    //        // record the default answer time out
-    //        GetCoreCallback()->GetDeviceProperty(port_.c_str(), "AnswerTimeout", answerTO);
-
-    //        // device specific default communication parameters
-    //        // for Arduino Duemilanova
-    //        GetCoreCallback()->SetDeviceProperty(port_.c_str(), MM::g_Keyword_Handshaking, g_Off);
-    //        GetCoreCallback()->SetDeviceProperty(port_.c_str(), MM::g_Keyword_BaudRate, "57600");
-    //        GetCoreCallback()->SetDeviceProperty(port_.c_str(), MM::g_Keyword_StopBits, "1");
-    //        // Arduino timed out in GetControllerVersion even if AnswerTimeout  = 300 ms
-    //        GetCoreCallback()->SetDeviceProperty(port_.c_str(), "AnswerTimeout", "500.0");
-    //        GetCoreCallback()->SetDeviceProperty(port_.c_str(), "DelayBetweenCharsMs", "0");
-    //        MM::Device* pS = GetCoreCallback()->GetDevice(this, port_.c_str());
-    //        pS->Initialize();
-    //        // The first second or so after opening the serial port, the Arduino is waiting for firmwareupgrades.  Simply sleep 2 seconds.
-    //        CDeviceUtils::SleepMs(2000);
-    //        MMThreadGuard myLock(lock_);
-    //        PurgeComPort(port_.c_str());
-    //        int v   = 0;
-    //        int ret = GetControllerVersion(v);
-    //        // later, Initialize will explicitly check the version #
-    //        if (DEVICE_OK != ret) {
-    //            LogMessageCode(ret, true);
-    //        } else {
-    //            // to succeed must reach here....
-    //            result = MM::CanCommunicate;
-    //        }
-    //        pS->Shutdown();
-    //        // always restore the AnswerTimeout to the default
-    //        GetCoreCallback()->SetDeviceProperty(port_.c_str(), "AnswerTimeout", answerTO);
-    //    }
-    //} catch (...) {
-    //    LogMessage("Exception in DetectDevice!", false);
-    //}
-    //return result;
 }
 
-int CTeensyHub::Initialize() {
+int TeensyHub::Initialize() {
+    std::cout << "###### Initialize()" << std::endl;
     try {
         // The first second or so after opening the serial port, the Arduino is waiting for firmwareupgrades.  Simply sleep 1 second.
         sys::delay(1000);
         PurgeComPort(port().c_str());
-        ASSERT_OK(name_.create(this, g_infoName));
-        ASSERT_OK(version_.create(this, g_infoVersion));
         int tempversion;
         ASSERT_OK(GetControllerVersion(tempversion));
         if (tempversion < g_Min_MMVersion)
             THROW_DEVICE_ERROR(rdlmm::ERR_VERSION_MISMATCH);
-        version_.SetProperty(tempversion);
-
+        ASSERT_OK(version_.create(this, g_infoVersion));
+        ASSERT_OK(version_.SetProperty(tempversion));
+        ASSERT_OK(foo_.create(this, client_, g_infoFoo));
         ASSERT_OK(UpdateStatus());
         initialized_ = true;
         return DEVICE_OK;
@@ -164,7 +125,8 @@ int CTeensyHub::Initialize() {
     }
 }
 
-int CTeensyHub::DetectInstalledDevices() {
+int TeensyHub::DetectInstalledDevices() {
+    std::cout << "###### DetectInstalledDevices()" << std::endl;
     //if (MM::CanCommunicate == DetectDevice()) {
     //    std::vector<std::string> peripherals;
     //    peripherals.clear();
@@ -184,8 +146,174 @@ int CTeensyHub::DetectInstalledDevices() {
     return DEVICE_OK;
 }
 
-int CTeensyHub::Shutdown() {
+int TeensyHub::Shutdown() {
+    std::cout << "###### Shutdown()" << std::endl;
     initialized_ = false;
     return DEVICE_OK;
 }
 
+
+//#############################################################################
+//### class TeensyDACGalvo
+//#############################################################################
+
+////////////////////////////////////////////////////////////////
+/// \name constructors and destructors
+////////////////////////////////////////////////////////////////
+///@{
+TeensyDACGalvo::TeensyDACGalvo(int __chan) : chan_(__chan) {
+    InitializeDefaultErrorMessages();
+    rdlmm::InitCommonErrors(this, "Teensy", g_Min_MMVersion);
+#if defined(GALVOS_SEQUENCABLE)
+    posSequence_.clear();
+#endif
+}
+
+TeensyDACGalvo::~TeensyDACGalvo() {
+    TeensyDACGalvo::Shutdown();
+}
+///@}
+
+//////////////////////////////////////////////////////////
+/// \name MM::Device implementation
+//////////////////////////////////////////////////////////
+///@{
+int TeensyDACGalvo::Shutdown() {
+    return DEVICE_OK;
+}
+
+int TeensyDACGalvo::Initialize() {
+    TeensyHub* hub = dynamic_cast<TeensyHub*>(GetParentHub());
+    if (!hub || !hub->IsPortAvailable()) {
+        return rdlmm::ERR_NO_PORT_SET;
+    }
+    try {
+        CommandSet cmds = CommandSet::build(); // dummy to initialize
+
+#if defined(GALVOS_SEQUENCABLE)
+        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_POS).withGet(GAL_GET_POS).withSetSeq(GAL_SETSEQ_POS).withGetSeq(GAL_GETSEQ_POS).withStartSeq(GAL_STARTSEQ_POS).withStopSeq(GAL_STOPSEQ_POS);
+        assertOK(pos_.createRemoteProp(this, hub, g_infoGalvoPosition, cmds));
+        cmds = CommandSet::build().withGet(GAL_GET_ARRAYSEQ_POS);
+        assertOK(posSeqRead_.createRemoteProp(this, hub, g_infoGalvoPosSeq, cmds));
+
+#else
+        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_POS).withGet(GAL_GET_POS);
+        assertOK(pos_.createRemoteProp(this, hub, g_infoGalvoPosition, cmds));
+#endif
+
+        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_OFF).withGet(GAL_GET_OFF);
+        assertOK(off_.createRemoteProp(this, hub, g_infoGalvoOffset, cmds));
+
+        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_FREQ).withGet(GAL_GET_FREQ);
+        assertOK(freq_.createRemoteProp(this, hub, g_infoGalvoFrequency, cmds));
+
+    } catch (DeviceResultException deviceError) {
+        LogMessage(deviceError.format(this));
+        std::string lastTrans = hub->getLastLog();
+        if (!lastTrans.empty()) {
+            LogMessage(std::string("Last Transaction: ") + lastTrans);
+        }
+        return deviceError.error;
+    }
+    return DEVICE_OK;
+}
+///@}
+
+//////////////////////////////////////////////////////////
+/// \name MM::Device implementation
+//////////////////////////////////////////////////////////
+///@{
+
+bool TeensyDACGalvo::Busy() {
+    //hprot::prot_bool_t moving;
+    //TeensyDACHub* hub = static_cast<TeensyDACHub*>(GetParentHub());
+
+    //if (!hub->dispatchGet(CHAN_GET_IS_MOVING, moving)) {
+    //	// not busy if error received
+    //	return false;
+    //}
+    //return moving != 0;
+    return false;
+}
+
+///@}
+
+//////////////////////////////////////////////////////////
+/// \name MM::Stage implementation
+//////////////////////////////////////////////////////////
+///@{
+
+int TeensyDACGalvo::SetPositionUm(double pos) {
+    // Treat position in um as wavelength in nm
+    return pos_.setProperty(static_cast<position_t>(pos));
+}
+
+int TeensyDACGalvo::GetPositionUm(double& pos) {
+    // Treat position in um as wavelength in nm
+    pos = pos_.getCachedValue();
+    return DEVICE_OK;
+}
+
+double TeensyDACGalvo::GetStepSize() const {
+    // Treat position in um as wavelength in nm
+    return POSITION_PRECISION;
+}
+
+int TeensyDACGalvo::SetPositionSteps(long steps) {
+    // Treat position in um as wavelength in nm
+    double pos_nm = steps * POSITION_PRECISION + MIN_POSITION;
+    return OnStagePositionChanged(pos_nm);
+}
+
+int TeensyDACGalvo::GetPositionSteps(long& steps) {
+    position_t pos_voltage = pos_.getCachedValue();
+    steps                  = static_cast<long>((pos_voltage - MIN_POSITION) / POSITION_PRECISION);
+    return DEVICE_OK;
+}
+
+int TeensyDACGalvo::GetLimits(double& lower, double& upper) {
+    // Treat position in um as wavelength in nm
+    lower = MIN_POSITION;
+    upper = MAX_POSITION;
+    return DEVICE_OK;
+}
+
+#if defined(GALVOS_SEQUENCABLE)
+int TeensyDACGalvo::GetStageSequenceMaxLength(long& nrEvents) const {
+    hprot::prot_size_t size;
+    int ret;
+    if ((ret = pos_.getRemoteSequenceSize(size)) == DEVICE_OK) {
+        nrEvents = size;
+    }
+    return ret;
+};
+
+int TeensyDACGalvo::StartStageSequence() {
+    int ret = pos_.startRemoteSequence();
+    return ret;
+}
+
+int TeensyDACGalvo::StopStageSequence() {
+    int ret = pos_.stopRemoteSequence();
+    return ret;
+};
+
+int TeensyDACGalvo::ClearStageSequence() {
+    posSequence_.clear();
+    return DEVICE_OK;
+};
+
+int TeensyDACGalvo::AddToStageSequence(double pos_um) {
+    posSequence_.push_back(std::to_string(pos_um));
+    return DEVICE_OK;
+}
+
+int TeensyDACGalvo::SendStageSequence() {
+    if (posSequence_.size() > 0) {
+        return pos_.setRemoteSequence(posSequence_);
+    }
+    return DEVICE_OK;
+}
+#endif
+
+///@}

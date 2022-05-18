@@ -6,6 +6,7 @@
     #define NOMINMAX
     #include "DeviceBase.h"
     #include "MMDevice.h"
+    #include <rdlmm/DeviceError.h>
     #include <rdlmm/DeviceLog.h>
     #include <rdlmm/DeviceProp.h>
     #include <rdlmm/DevicePropHelpers.h>
@@ -28,19 +29,20 @@ const auto g_infoNumGalvos = rdlmm::PropInfo<int>::build("Number of Galvos", 0).
 
 const auto g_infoVersion = rdlmm::PropInfo<int>::build("Firmware Version", 0).readOnly();
 const auto g_infoIsAlive = rdlmm::PropInfo<bool>::build("Is Alive", false).readOnly();
+const auto g_infoFoo     = rdlmm::PropInfo<int>::build("Foo", 0).withBrief("foo").withLimits(-1000, 1000).sequencable();
 
 //class TeensyInputMonitorThread;
 
-class CTeensyHub : public HubBase<CTeensyHub> {
+class TeensyHub : public HubBase<TeensyHub> {
  public:
-    using HubT          = CTeensyHub;
+    using HubT          = TeensyHub;
     using LoggerT       = rdlmm::DeviceLog_Print<HubT>;
     using SerialStreamT = rdlmm::Stream_HubSerial<HubT>;
     using KeysT         = rdl::jsonrpc_default_keys;
     using ClientT       = rdl::json_client<KeysT, JSONRCP_BUFFER_SIZE>;
 
-    CTeensyHub();
-    ~CTeensyHub() {
+    TeensyHub();
+    ~TeensyHub() {
         Shutdown();
     }
 
@@ -70,6 +72,12 @@ class CTeensyHub : public HubBase<CTeensyHub> {
         return res;
     }
 
+    ClientT client() {
+        return client_;
+    }
+
+    bool IsPortAvailable() { return initialized_; }
+
     //// custom interface for child devices
     //bool IsPortAvailable() {return portAvailable_;}
     //bool IsLogicInverted() {return invertedLogic_;}
@@ -90,25 +98,24 @@ class CTeensyHub : public HubBase<CTeensyHub> {
 
  protected:
     int GetControllerVersion(int&);
-    rdlmm::LocalProp<HubT, std::string> name_;
     rdlmm::LocalProp<HubT, std::string> port_;
     rdlmm::LocalProp<HubT, int> version_;
+    rdlmm::RemoteSimpleProp<HubT, int> foo_;
     bool initialized_;
-    bool portAvailable_;
     LoggerT logger_;
     SerialStreamT serial_;
     ClientT client_;
 };
 
-#if 0
+#if 1
 class TeensyDACGalvo : public CStageBase<TeensyDACGalvo> {
  public:
-    using HubT = CTeensyHub;
+    using HubT = TeensyHub;
     TeensyDACGalvo(int __chan);
     virtual ~TeensyDACGalvo();
 
     void GetName(char* __name) const override {
-        ::std::string name = g_deviceNameGalvo;
+        std::string name = g_deviceNameGalvo;
         name += char('A' + chan_);
         CDeviceUtils::CopyLimitedString(__name, name.c_str());
     }
@@ -136,27 +143,22 @@ class TeensyDACGalvo : public CStageBase<TeensyDACGalvo> {
 
     // Sequence functions
     int IsStageSequenceable(bool&) const override {
-    #if defined(GALVOS_SEQUENCABLE)
         return true;
-    #else
-        return false;
-    #endif
     };
-    #if defined(GALVOS_SEQUENCABLE)
     int GetStageSequenceMaxLength(long& nrEvents) const override;
     int StartStageSequence() override;
     int StopStageSequence() override;
     int ClearStageSequence() override;
     int AddToStageSequence(double pos_um) override;
     int SendStageSequence() override;
-    #endif
     ///@}
 
  protected:
     int chan_;
+    std::vector<std::string> posSequence_;
     rdlmm::RemoteChannelProp<HubT, double, long> pos_;
-    rdlmm::RemoteChannelProp<HubT, double, long> off_;
-    rdlmm::RemoteChannelProp<HubT, double> freq_;
+    //rdlmm::RemoteChannelProp<HubT, double, long> off_;
+    //rdlmm::RemoteChannelProp<HubT, double> freq_;
 }; // TeensyDACGalvo
 
 #endif

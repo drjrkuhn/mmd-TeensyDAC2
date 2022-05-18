@@ -32,7 +32,7 @@ int main() {
     using namespace std;
 
     CMMCore core;
-    core.enableStderrLog(true);
+    //core.enableStderrLog(true);
     //core.enableDebugLog(true);
     try {
         core.loadDevice(g_hubName.c_str(), g_moduleName.c_str(), g_hubName.c_str());
@@ -73,6 +73,7 @@ int main() {
         cout << "==== Loaded Devices ====" << endl;
         for (auto dev : core.getLoadedDevices()) {
             cout << '\t' << dev << endl;
+            
         }
 
         // setup the serial port from the serial manager

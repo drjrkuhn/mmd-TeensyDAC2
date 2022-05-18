@@ -29,6 +29,9 @@ void logger_begin() {}
 
 sys::StringT g_firmware_name("MM-TeensyDAC2");
 const int g_firmware_version = 1;
+const int MAX_SEQ_SIZE = 512;
+const int MAX_DAC_CHAN = 8;
+const int g_num_dac_chan = 4;
 
 /** 
  * Firmware double check. 
@@ -49,23 +52,31 @@ MapT dispatch_map{
     {"?fver", json_delegate<RetT<int>, sys::StringT>::create<get_firmware_version>().stub()},
 };
 
-rdl::simple_prop_base<int, 32> foo("foo", 1, true);
+rdl::simple_prop<int> foo("foo", 1, 32);
 
-rdl::simple_prop_base<double, 32> bar0("bar0", 1.1, true);
-rdl::simple_prop_base<double, 32> bar1("bar1", 2.2, true);
-rdl::simple_prop_base<double, 32> bar2("bar2", 3.3, true);
-rdl::simple_prop_base<double, 32> bar3("bar3", 4.4, true);
-
+rdl::simple_prop<double> bar0("bar0", 1.1, 32);
+rdl::simple_prop<double> bar1("bar1", 2.2, 32);
+rdl::simple_prop<double> bar2("bar2", 3.3, 32);
+rdl::simple_prop<double> bar3("bar3", 4.4, 32);
 decltype(bar0)::RootT* all_bars[] = {&bar0, &bar1, &bar2, &bar3};
-
-rdl::channel_prop_base<double, 4> bars("bar", all_bars, 4);
+rdl::channel_prop<double> bars("bar", all_bars, 4);
 
 // The server
 using ServerT = json_server<MapT, KeysT, 512>;
 ServerT server(Serial, Serial, dispatch_map);
 
+rdl::channel_prop<int16_t> dac_vals("dv", MAX_DAC_CHAN);
+
 void setup_dispatch()
 {
+    for (int i=0; i<g_num_dac_chan; i++) {
+        sys::StringT name = "dv";
+        name += ('A'+i);
+        rdl::simple_prop<int16_t> dval(name, 0, MAX_SEQ_SIZE);
+        dac_vals.add(&dval);
+    }
+    add_to<MapT, decltype(dac_vals)::RootT>(dispatch_map, dac_vals, dac_vals.sequencable(-1), dac_vals.read_only(-1));
+
     add_to<MapT, decltype(foo)::RootT>(dispatch_map, foo, foo.sequencable(), foo.read_only());
     add_to<MapT, decltype(bars)::RooT>(dispatch_map, bars, bars.sequencable(-1), bars.read_only(-1));
 }

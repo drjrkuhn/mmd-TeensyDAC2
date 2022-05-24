@@ -14,11 +14,12 @@
 
 #include "TeensyDAC.h"
 #include "ModuleInterface.h"
-#include <rdl/sys_timing.h>
 #include <iostream>
+#include <rdl/Delegate.h>
+#include <rdl/sys_timing.h>
 
 // Global info about the state of the Arduino.  This should be folded into a class
-const int g_Min_MMVersion         = 1;
+const int g_Min_MMVersion = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Exported MMDevice API
@@ -40,14 +41,14 @@ MODULE_API void InitializeModuleData() {
 
 MODULE_API MM::Device* CreateDevice(const char* deviceName) {
     std::cout << "###### CreateDevice " << deviceName << std::endl;
-    if (deviceName == 0) { 
+    if (deviceName == 0) {
         return nullptr;
     }
     if (strcmp(deviceName, g_deviceNameHub) == 0) {
         return new TeensyHub;
     }
 
-    #if 0
+#if 0
     for (int i = 0; i < MAX_NUM_GALVOS; i++) {
         std::string name = g_deviceNameGalvo;
         name += char('A' + i);
@@ -55,7 +56,7 @@ MODULE_API MM::Device* CreateDevice(const char* deviceName) {
             return new TeensyDACGalvo(i);
         }
     }
-    #endif
+#endif
     return nullptr;
 }
 
@@ -69,7 +70,7 @@ MODULE_API void DeleteDevice(MM::Device* pDevice) {
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
 TeensyHub::TeensyHub()
-    : initialized_(false), serial_(this), client_(serial_, serial_) {
+    : initialized_(false), serial_(this), client_(std::move(rdl::static_json_client<rdl::jsonrpc_default_keys, 512>(serial_, serial_))) {
     //std::cout << "###### TeensyHub() constructor" << std::endl;
     InitializeDefaultErrorMessages();
     rdlmm::InitCommonErrors(this, "Teensy", g_Min_MMVersion);
@@ -84,7 +85,7 @@ int TeensyHub::GetControllerVersion(int& version) {
     std::cout << "###### GetControllerVersion()" << std::endl;
     version = 0;
     try {
-        int tempversion  = 0;
+        int tempversion = 0;
         ASSERT_OK((client_.call_get<int, std::string>("?fver", tempversion, g_FirmwareName)));
         version = tempversion;
         return DEVICE_OK;
@@ -114,7 +115,7 @@ int TeensyHub::Initialize() {
             THROW_DEVICE_ERROR(rdlmm::ERR_VERSION_MISMATCH);
         ASSERT_OK(version_.create(this, g_infoVersion));
         ASSERT_OK(version_.SetProperty(tempversion));
-        ASSERT_OK(foo_.create(this, client_, g_infoFoo));
+        ASSERT_OK(foo_.create(this, &client_, g_infoFoo));
         ASSERT_OK(UpdateStatus());
         initialized_ = true;
         return DEVICE_OK;
@@ -152,16 +153,14 @@ int TeensyHub::Shutdown() {
     return DEVICE_OK;
 }
 
-
 //#############################################################################
 //### class TeensyDACGalvo
 //#############################################################################
 
 ////////////////////////////////////////////////////////////////
-/// \name constructors and destructors
+/// constructors and destructors
 ////////////////////////////////////////////////////////////////
-///@{
-TeensyDACGalvo::TeensyDACGalvo(int __chan) : chan_(__chan) {
+TeensyDACGalvo::TeensyDACGalvo(int __chan, TeensyHub* hub) : chan_(__chan), hub_(hub) {
     InitializeDefaultErrorMessages();
     rdlmm::InitCommonErrors(this, "Teensy", g_Min_MMVersion);
 #if defined(GALVOS_SEQUENCABLE)
@@ -172,12 +171,11 @@ TeensyDACGalvo::TeensyDACGalvo(int __chan) : chan_(__chan) {
 TeensyDACGalvo::~TeensyDACGalvo() {
     TeensyDACGalvo::Shutdown();
 }
-///@}
 
+/// //////////////////////////////////////////////////////////
+/// MM::Device implementation
 //////////////////////////////////////////////////////////
-/// \name MM::Device implementation
-//////////////////////////////////////////////////////////
-///@{
+
 int TeensyDACGalvo::Shutdown() {
     return DEVICE_OK;
 }
@@ -188,41 +186,38 @@ int TeensyDACGalvo::Initialize() {
         return rdlmm::ERR_NO_PORT_SET;
     }
     try {
-        CommandSet cmds = CommandSet::build(); // dummy to initialize
+        ASSERT_OK(pos_.create(this, &(hub_->client()), g_infoDACPos, chan_));
+        pos_.to_local_delegate(rdl::delegate<double, int16_t>::create<TeensyDACGalvo, &TeensyDACGalvo::toLocal>(this));
+        pos_.to_remote_delegate(rdl::delegate<int16_t, double>::create<TeensyDACGalvo, &TeensyDACGalvo::toRemote>(this));
 
-#if defined(GALVOS_SEQUENCABLE)
-        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_POS).withGet(GAL_GET_POS).withSetSeq(GAL_SETSEQ_POS).withGetSeq(GAL_GETSEQ_POS).withStartSeq(GAL_STARTSEQ_POS).withStopSeq(GAL_STOPSEQ_POS);
-        assertOK(pos_.createRemoteProp(this, hub, g_infoGalvoPosition, cmds));
-        cmds = CommandSet::build().withGet(GAL_GET_ARRAYSEQ_POS);
-        assertOK(posSeqRead_.createRemoteProp(this, hub, g_infoGalvoPosSeq, cmds));
-
-#else
-        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_POS).withGet(GAL_GET_POS);
-        assertOK(pos_.createRemoteProp(this, hub, g_infoGalvoPosition, cmds));
-#endif
-
-        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_OFF).withGet(GAL_GET_OFF);
-        assertOK(off_.createRemoteProp(this, hub, g_infoGalvoOffset, cmds));
-
-        cmds = CommandSet::build().withChan(chan_).withSet(GAL_SET_FREQ).withGet(GAL_GET_FREQ);
-        assertOK(freq_.createRemoteProp(this, hub, g_infoGalvoFrequency, cmds));
-
-    } catch (DeviceResultException deviceError) {
-        LogMessage(deviceError.format(this));
-        std::string lastTrans = hub->getLastLog();
-        if (!lastTrans.empty()) {
-            LogMessage(std::string("Last Transaction: ") + lastTrans);
-        }
-        return deviceError.error;
+        return DEVICE_OK;
+    } catch (rdlmm::DeviceResultException dre) {
+        LogMessage(dre.format(this));
+        return dre.error;
     }
-    return DEVICE_OK;
 }
-///@}
+
+double TeensyDACGalvo::toLocal(int16_t dacval) {
+    const double max = max_voltage_ * 32767 / 32768; // from spec sheets
+    const double min = min_voltage_;                 // *32768 / 32768; // from spec sheets
+    double dacvolt   = 10.0 * dacval;
+    if (dacvolt > max) dacvolt = max;
+    if (dacvolt < min) dacvolt = min;
+    return dacvolt;
+}
+
+int16_t TeensyDACGalvo::toRemote(double dacvolt) {
+    const double max = max_voltage_ * 32767 / 32768; // from spec sheets
+    const double min = min_voltage_;                 // *32768 / 32768; // from spec sheets
+
+    if (dacvolt > max) dacvolt = max;
+    if (dacvolt < min) dacvolt = min;
+    return static_cast<int16_t>(dacvolt * 32767);
+}
 
 //////////////////////////////////////////////////////////
-/// \name MM::Device implementation
+/// MM::Device implementation
 //////////////////////////////////////////////////////////
-///@{
 
 bool TeensyDACGalvo::Busy() {
     //hprot::prot_bool_t moving;
@@ -236,65 +231,63 @@ bool TeensyDACGalvo::Busy() {
     return false;
 }
 
-///@}
-
 //////////////////////////////////////////////////////////
-/// \name MM::Stage implementation
+/// MM::Stage implementation
 //////////////////////////////////////////////////////////
-///@{
 
 int TeensyDACGalvo::SetPositionUm(double pos) {
     // Treat position in um as wavelength in nm
-    return pos_.setProperty(static_cast<position_t>(pos));
+    return pos_.SetProperty(pos);
 }
 
 int TeensyDACGalvo::GetPositionUm(double& pos) {
     // Treat position in um as wavelength in nm
-    pos = pos_.getCachedValue();
-    return DEVICE_OK;
+    return pos_.GetCachedProperty(pos);
 }
 
 double TeensyDACGalvo::GetStepSize() const {
     // Treat position in um as wavelength in nm
-    return POSITION_PRECISION;
+    return 10.0 / 32768;
 }
 
 int TeensyDACGalvo::SetPositionSteps(long steps) {
-    // Treat position in um as wavelength in nm
-    double pos_nm = steps * POSITION_PRECISION + MIN_POSITION;
-    return OnStagePositionChanged(pos_nm);
+    static long posmax = std::numeric_limits<int16_t>::max();
+    static long posmin = std::numeric_limits<int16_t>::min();
+    // steps is actually the DAC value
+    if (steps > posmax) steps = posmax;
+    if (steps < posmin) steps = posmin;
+    double dval = toLocal(static_cast<int16_t>(steps));
+    return OnStagePositionChanged(dval);
 }
 
 int TeensyDACGalvo::GetPositionSteps(long& steps) {
-    position_t pos_voltage = pos_.getCachedValue();
-    steps                  = static_cast<long>((pos_voltage - MIN_POSITION) / POSITION_PRECISION);
+    double dvolt;
+    int ret;
+    if ((ret = pos_.GetCachedProperty(dvolt)) != DEVICE_OK) {
+        return ret;
+    }
+    steps = toRemote(dvolt);
     return DEVICE_OK;
 }
 
 int TeensyDACGalvo::GetLimits(double& lower, double& upper) {
     // Treat position in um as wavelength in nm
-    lower = MIN_POSITION;
-    upper = MAX_POSITION;
+    lower = min_voltage_;
+    upper = max_voltage_;
     return DEVICE_OK;
 }
 
-#if defined(GALVOS_SEQUENCABLE)
 int TeensyDACGalvo::GetStageSequenceMaxLength(long& nrEvents) const {
-    hprot::prot_size_t size;
-    int ret;
-    if ((ret = pos_.getRemoteSequenceSize(size)) == DEVICE_OK) {
-        nrEvents = size;
-    }
-    return ret;
+    return pos_.GetMaxSequenceSize(nrEvents);
 };
 
 int TeensyDACGalvo::StartStageSequence() {
-    int ret = pos_.startRemoteSequence();
+    int ret = pos_.StartSequence();
     return ret;
 }
 
 int TeensyDACGalvo::StopStageSequence() {
-    int ret = pos_.stopRemoteSequence();
+    int ret = pos_.StopSequence();
     return ret;
 };
 
@@ -310,10 +303,7 @@ int TeensyDACGalvo::AddToStageSequence(double pos_um) {
 
 int TeensyDACGalvo::SendStageSequence() {
     if (posSequence_.size() > 0) {
-        return pos_.setRemoteSequence(posSequence_);
+        return pos_.SetSequence(posSequence_);
     }
     return DEVICE_OK;
 }
-#endif
-
-///@}

@@ -30,6 +30,7 @@ const auto g_infoNumGalvos = rdlmm::PropInfo<int>::build("Number of Galvos", 0).
 const auto g_infoVersion = rdlmm::PropInfo<int>::build("Firmware Version", 0).readOnly();
 const auto g_infoIsAlive = rdlmm::PropInfo<bool>::build("Is Alive", false).readOnly();
 const auto g_infoFoo     = rdlmm::PropInfo<int>::build("Foo", 0).withBrief("foo").withLimits(-1000, 1000).sequencable();
+const auto g_infoDACPos  = rdlmm::PropInfo<double>::build("Position", 0).withBrief("pos").withLimits(-10.0, 10.0).sequencable();
 
 //class TeensyInputMonitorThread;
 
@@ -38,8 +39,8 @@ class TeensyHub : public HubBase<TeensyHub> {
     using HubT          = TeensyHub;
     using LoggerT       = rdlmm::DeviceLog_Print<HubT>;
     using SerialStreamT = rdlmm::Stream_HubSerial<HubT>;
-    using KeysT         = rdl::jsonrpc_default_keys;
-    using ClientT       = rdl::json_client<KeysT, JSONRCP_BUFFER_SIZE>;
+    //using KeysT         = rdl::jsonrpc_default_keys;
+    //using ClientT       = rdl::json_client<KeysT>;
 
     TeensyHub();
     ~TeensyHub() {
@@ -72,7 +73,7 @@ class TeensyHub : public HubBase<TeensyHub> {
         return res;
     }
 
-    ClientT client() {
+    rdl::json_client<rdl::jsonrpc_default_keys> client() {
         return client_;
     }
 
@@ -104,14 +105,14 @@ class TeensyHub : public HubBase<TeensyHub> {
     bool initialized_;
     LoggerT logger_;
     SerialStreamT serial_;
-    ClientT client_;
+    rdl::json_client<rdl::jsonrpc_default_keys> client_;
 };
 
 #if 1
 class TeensyDACGalvo : public CStageBase<TeensyDACGalvo> {
  public:
     using HubT = TeensyHub;
-    TeensyDACGalvo(int __chan);
+    TeensyDACGalvo(int __chan, HubT* hub);
     virtual ~TeensyDACGalvo();
 
     void GetName(char* __name) const override {
@@ -122,6 +123,9 @@ class TeensyDACGalvo : public CStageBase<TeensyDACGalvo> {
     bool Busy() override;
     int Shutdown() override;
     int Initialize() override;
+
+    double toLocal(int16_t dacval);
+    int16_t toRemote(double dacvolt);
 
     /////////////////////////////////////////////////////////////
     /// MM::Stage implementation
@@ -154,9 +158,12 @@ class TeensyDACGalvo : public CStageBase<TeensyDACGalvo> {
     ///@}
 
  protected:
+    HubT* hub_;
+    const double max_voltage_ = +10.0;
+    const double min_voltage_ = -10.0;
     int chan_;
     std::vector<std::string> posSequence_;
-    rdlmm::RemoteChannelProp<HubT, double, long> pos_;
+    rdlmm::RemoteChannelProp<TeensyDACGalvo, double, int16_t> pos_;
     //rdlmm::RemoteChannelProp<HubT, double, long> off_;
     //rdlmm::RemoteChannelProp<HubT, double> freq_;
 }; // TeensyDACGalvo

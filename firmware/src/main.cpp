@@ -52,27 +52,26 @@ MapT dispatch_map{
     {"?fver", json_delegate<RetT<int>, sys::StringT>::create<get_firmware_version>().stub()},
 };
 
-rdl::simple_prop<int> foo("foo", 1, 32);
+simple_prop<int> foo = static_simple_prop<int,32>("foo", 1);
 
-rdl::simple_prop<double> bar0("bar0", 1.1, 32);
-rdl::simple_prop<double> bar1("bar1", 2.2, 32);
-rdl::simple_prop<double> bar2("bar2", 3.3, 32);
-rdl::simple_prop<double> bar3("bar3", 4.4, 32);
+simple_prop<double> bar0 = static_simple_prop<double,32>("bar0", 1.1);
+simple_prop<double> bar1 = static_simple_prop<double,32>("bar1", 2.2);
+simple_prop<double> bar2 = static_simple_prop<double,32>("bar2", 3.3);
+simple_prop<double> bar3 = static_simple_prop<double,32>("bar3", 4.4);
 decltype(bar0)::RootT* all_bars[] = {&bar0, &bar1, &bar2, &bar3};
-rdl::channel_prop<double> bars("bar", all_bars, 4);
+channel_prop<double> bars("bar", all_bars, 4);
 
 // The server
-using ServerT = json_server<MapT, KeysT, 512>;
-ServerT server(Serial, Serial, dispatch_map);
+json_server<MapT, KeysT> server = static_json_server<MapT,KeysT,512>(Serial, Serial, dispatch_map);
 
-rdl::channel_prop<int16_t> dac_vals("dv", MAX_DAC_CHAN);
+channel_prop<int16_t> dac_vals = static_channel_prop<int16_t,MAX_DAC_CHAN>("dv");
 
 void setup_dispatch()
 {
     for (int i=0; i<g_num_dac_chan; i++) {
         sys::StringT name = "dv";
         name += ('A'+i);
-        rdl::simple_prop<int16_t> dval(name, 0, MAX_SEQ_SIZE);
+        simple_prop<int16_t> dval = dynamic_simple_prop<int16_t>(name, 0, MAX_SEQ_SIZE);
         dac_vals.add(&dval);
     }
     add_to<MapT, decltype(dac_vals)::RootT>(dispatch_map, dac_vals, dac_vals.sequencable(-1), dac_vals.read_only(-1));
